@@ -1,0 +1,14 @@
+venv/
+containers.json
+public-endpoint.json
+
+.DS_Store
+
+.vscode/
+.idea/
+*.swp
+
+instance/
+.cache/
+*.pyo
+*.pyd
