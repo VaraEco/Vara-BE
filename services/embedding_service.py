@@ -1,6 +1,13 @@
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import BedrockEmbeddings
+import boto3
+
 
 class EmbeddingService:
     def get_embedding():
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        bedrock_client = boto3.client(service_name='bedrock-runtime', 
+                              region_name='us-east-1')
+        embeddings = BedrockEmbeddings(
+            model_id="cohere.embed-english-v3",
+                                       client=bedrock_client
+        )
         return embeddings

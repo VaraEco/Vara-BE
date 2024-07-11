@@ -36,9 +36,9 @@ class CreateAgent:
     @staticmethod
     def get_history_aware_retriever():
         llm = Model.get_model()
-        retriever = Vectorstore.get_vectorstore('ghg-doc-index')
+        retriever = Vectorstore.get_vectorstore('vara-doc-index')
         context_prompt = Template.get_contextualize_template()
-        history_aware_retriever = create_history_aware_retriever(llm,retriever.as_retriever(),context_prompt)
+        history_aware_retriever = create_history_aware_retriever(llm,retriever.as_retriever(search_kwargs={'k':6}),context_prompt)
         return history_aware_retriever
     
     @staticmethod
