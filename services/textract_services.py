@@ -17,8 +17,6 @@ class Textract:
                     'Name': document_name
                 }
             },
-            ClientRequestToken='string',
-            JobTag='string',
         )
         return response['JobId']
     
