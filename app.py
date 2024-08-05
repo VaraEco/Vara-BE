@@ -5,7 +5,7 @@ from logging_config import Logging
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config.from_object(Config)
 logger = Logging.set_logging()
 logger.info(f'Initial Config MODEL_ID: {app.config["MODEL_ID"]}')
