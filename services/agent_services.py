@@ -15,14 +15,14 @@ class AgentServices:
         instruction_prompt = Template.get_code_instruction_prompt()
         model = Model.get_model()
         agent = create_react_agent(model, self.instruction_generation_tools, instruction_prompt)
-        agent_executor = AgentExecutor(agent=agent, tools=self.instruction_generation_tools, verbose=True)
+        agent_executor = AgentExecutor(agent=agent, tools=self.instruction_generation_tools, verbose=True, handle_parsing_errors=True)
         return agent_executor
     
     def get_code_generation_agent_executor(self):
         code_generation_prompt = Template.last_level_instruction_prompt()
         model = Model.get_model()
         agent = create_react_agent(model, self.code_generation_tools, code_generation_prompt)
-        agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True)
+        agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True, handle_parsing_errors=True)
         return agent_executor
 
     def get_first_level_chain(self):

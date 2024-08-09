@@ -1,4 +1,5 @@
 import pandas as pd
+import awswrangler as wr
 import re
 import os
 
@@ -8,28 +9,41 @@ class DataAnalyzerUtils:
         self.file_name = file_name
     
     def get_instructions(self, instruction_agent_executor, query):
-        df = pd.read_csv(self.file_name)
-        instructions = instruction_agent_executor.invoke({'input':query, 'schema':df.columns, 'sample':df.iloc[0]})
+        self.create_csv()
+        instructions = instruction_agent_executor.invoke({'input':query})
         return instructions
     
     def get_data(self, code_agent_executor, query):
-        df = pd.read_csv(self.file_name)
-        code_string = code_agent_executor.invoke({'input':query, 'schema':df.columns, 'sample':df.iloc[0]})
+        code_string = code_agent_executor.invoke({'input':query})
         code = self.extract_code(code_string['output'])
-        self.execute_code(code)
+        x_axis, y_axis = self.execute_code(code)
         return x_axis.copy(), y_axis.copy()
 
 
     def execute_code(self, code):
+        
         if os.path.isfile(self.FILENAME):
             os.remove(self.FILENAME)
         with open(self.FILENAME, 'w') as file:
             file.write(code)
-        execfile(self.FILENAME)
+        locals = {}
+       
+        exec(open(self.FILENAME).read(), locals)
         os.remove(self.FILENAME)
-
+        os.remove('df_small.csv')
+        return locals['x_axis'], locals['y_axis']
     
     def extract_code(self, code_string):
         code_block = re.search(r'```python\n(.*?)\n```', code_string, re.DOTALL).group(1)
 
         return code_block
+    
+    def get_file_url(self):
+        base = 's3://compliance-document-bucket/{name}'
+        url = base.format(name=self.file_name)
+        return url
+    
+    def create_csv(self):
+        csv_url = self.get_file_url()
+        df = wr.s3.read_csv(csv_url)
+        df.to_csv('df_small.csv')

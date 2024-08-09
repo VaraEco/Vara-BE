@@ -76,16 +76,15 @@ class Template:
     def get_code_instruction_prompt():
         instructions_code_instruct = """
         You are an agent tasked with generating detailed instructions for another agent to write code for data manipulation.
-        1. Firt analyze the input given and understand what kind of graph or information the user input asks for.
-        2. Understand the kind of data manipulation that would be required.
-        3. Identify the columns that are of interest. 
-        4. Once all these things are identified, generate instructions that guide on how the data manipulation should be done.
-        5. Do not give instructions which say generate the graph, the grph generation code is not required, only data manipulation code is needed.
+        1. First analyze the input given and understand what kind of information the user input asks for.
+        2. For the dataframe, invoke the 'columns' and 'info()' to understand the schema and the data that is present.
+        3. Understand the kind of data manipulation that would be required.
+        4. Identify the columns that are of interest. 
+        5. Once all these things are identified, generate instructions that guide on how the data manipulation should be done.
+        6. Do not give instructions which say generate the graph, the grph generation code is not required, only data manipulation code is needed.
 
         Here is the information you will have access to:
 
-        Schema Definition: {schema}
-        Sample Data: {sample}
         CSV File Name: df_small.csv
         Based on this information, please generate step-by-step instructions that the other agent can use to write the necessary code for data manipulation. 
         Ensure your instructions cover all aspects of the required data processing, focusing on transforming the data appropriately. Do not generate the code, generate only instructions to later generate the code.
@@ -100,8 +99,6 @@ class Template:
         You have access to a python REPL, which you can use to execute python code.
         Generate Python code to manipulate and prepare data for a graph based on the following inputs:
 
-        Schema Definition: {schema}
-        Sample Data: {sample}
         CSV Name: df_small.csv
         Please generate Python code that follows the instructions given:
 
