@@ -16,8 +16,8 @@ class DataAnalyzerUtils:
     def get_data(self, code_agent_executor, query):
         code_string = code_agent_executor.invoke({'input':query})
         code = self.extract_code(code_string['output'])
-        x_axis, y_axis = self.execute_code(code)
-        return x_axis.copy(), y_axis.copy()
+        x_axis, y_axis, x_label, y_label = self.execute_code(code)
+        return x_axis, y_axis, x_label, y_label
 
 
     def execute_code(self, code):
@@ -31,7 +31,7 @@ class DataAnalyzerUtils:
         exec(open(self.FILENAME).read(), locals)
         os.remove(self.FILENAME)
         os.remove('df_small.csv')
-        return locals['x_axis'], locals['y_axis']
+        return locals['x_axis'], locals['y_axis'], locals['x_label'], locals['y_label']
     
     def extract_code(self, code_string):
         code_block = re.search(r'```python\n(.*?)\n```', code_string, re.DOTALL).group(1)

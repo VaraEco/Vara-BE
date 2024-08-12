@@ -73,7 +73,18 @@ class Template:
         first_step_prompt = ChatPromptTemplate.from_template(first_step_query)
         return first_step_prompt
     
-    def get_code_instruction_prompt():
+    def get_type_of_response_prompt():
+        type_of_response_query="""
+        You will be given a user query which is essentially an instruction to get certain kind of data. The query could contain the kind of graph 
+        the user wants or would contain any specific data. Identify the graph the user wants to see, if present or return 'data' . The response should only be the graph name or 'data'. Do not 
+        explain your reasoning. The answer should strictly be only the graph name or 'data' that you identify.
+
+        Query: {query}
+        """
+        type_of_response_prompt = ChatPromptTemplate.from_template(type_of_response_query)
+        return type_of_response_prompt
+    
+    def get_code_instruction_prompt(file):
         instructions_code_instruct = """
         You are an agent tasked with generating detailed instructions for another agent to write code for data manipulation.
         1. First analyze the input given and understand what kind of information the user input asks for.
@@ -85,26 +96,28 @@ class Template:
 
         Here is the information you will have access to:
 
-        CSV File Name: df_small.csv
+        CSV File Name: {file}
         Based on this information, please generate step-by-step instructions that the other agent can use to write the necessary code for data manipulation. 
         Ensure your instructions cover all aspects of the required data processing, focusing on transforming the data appropriately. Do not generate the code, generate only instructions to later generate the code.
         """
 
         base_prompt_code_instruct = hub.pull("langchain-ai/react-agent-template")
+        instructions_code_instruct = instructions_code_instruct.format(file=file)
         prompt_code_instruct = base_prompt_code_instruct.partial(instructions=instructions_code_instruct)
         return prompt_code_instruct
     
-    def last_level_instruction_prompt():
+    def last_level_instruction_prompt(file):
         instructions = """You are an agent designed to write and execute python code to answer questions.
         You have access to a python REPL, which you can use to execute python code.
         Generate Python code to manipulate and prepare data for a graph based on the following inputs:
 
-        CSV Name: df_small.csv
+        CSV Name: {file}
         Please generate Python code that follows the instructions given:
 
         Ensure the code is clear, well-documented, and suitable for visualizing the data as specified.
         Declare two variables named 'x_axis' and 'y_axis'. Put the data that's supposed to be on the 
         X-axis in the variable 'x_axis' and the data that's supposed to be on the Y-axis in the cariable 'y_axis'.
+        Additionally, put the labels of the X-axis in the variable 'x_label' and the labels of the Y-axis in the variable 'y_label'.
 
         If you get an error, debug your code and try again.
         Return the generated code.
@@ -112,5 +125,6 @@ class Template:
 
         """
         base_prompt = hub.pull("langchain-ai/react-agent-template")
+        instructions = instructions.format(file=file)
         prompt = base_prompt.partial(instructions=instructions)
         return prompt

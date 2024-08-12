@@ -5,6 +5,7 @@ import boto3
 from botocore.exceptions import ClientError
 import json
 from services.textract_services import Textract
+from utils.general_utils import GeneralUtils
 
 document_upload_bp = Blueprint('document_upload', __name__)
 CORS(document_upload_bp, resources={r"/upload/document/analysis":{"origins":"*"}, r"/upload/document/data/analysis":{"origins":"*"}}, methods=['POST'])
@@ -46,14 +47,16 @@ def upload_document_analysis():
 
     file = request.files.get('filepond', '')
 
-    fileName = file.filename
-    print(fileName)
+    file_name = file.filename
+    chatId = GeneralUtils.get_uuid(file_name)
+    file_name = file_name+'.csv'
+    
 
     # Upload the file to S3
     s3_client = boto3.client('s3')
     response = True
     try:
-        s3_client.upload_fileobj(file, bucket_name, fileName)
+        s3_client.upload_fileobj(file, bucket_name, file_name)
     except ClientError as e:
         logger.error(e)
 

@@ -11,15 +11,15 @@ class AgentServices:
         self.code_generation_tools = [PythonREPLTool()]
         self.instruction_generation_tools = [PythonREPLTool()]
     
-    def get_instruction_generation_agent_executor(self):
-        instruction_prompt = Template.get_code_instruction_prompt()
+    def get_instruction_generation_agent_executor(self, file):
+        instruction_prompt = Template.get_code_instruction_prompt(file)
         model = Model.get_model()
         agent = create_react_agent(model, self.instruction_generation_tools, instruction_prompt)
         agent_executor = AgentExecutor(agent=agent, tools=self.instruction_generation_tools, verbose=True, handle_parsing_errors=True)
         return agent_executor
     
-    def get_code_generation_agent_executor(self):
-        code_generation_prompt = Template.last_level_instruction_prompt()
+    def get_code_generation_agent_executor(self, file):
+        code_generation_prompt = Template.last_level_instruction_prompt(file)
         model = Model.get_model()
         agent = create_react_agent(model, self.code_generation_tools, code_generation_prompt)
         agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True, handle_parsing_errors=True)
@@ -30,3 +30,9 @@ class AgentServices:
         model = Model.get_model()
         first_level_chain = first_level_prompt | model | StrOutputParser()
         return first_level_chain
+
+    def get_type_of_response_chain(self):
+        type_of_response_prompt = Template.get_type_of_response_prompt()
+        model = Model.get_model()
+        type_of_response_chain = type_of_response_prompt | model | StrOutputParser()
+        return type_of_response_chain
