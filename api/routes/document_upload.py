@@ -48,16 +48,17 @@ def upload_document_analysis():
     file = request.files.get('filepond', '')
 
     file_name = file.filename
-    chatId = GeneralUtils.get_uuid(file_name)
-    file_name = file_name+'.csv'
+    chat_id = GeneralUtils.get_uuid(file_name)
+    file_name = chat_id+'.csv'
     
 
     # Upload the file to S3
     s3_client = boto3.client('s3')
     response = True
     try:
-        s3_client.upload_fileobj(file, bucket_name, file_name)
+        response = s3_client.upload_fileobj(file, bucket_name, file_name)
     except ClientError as e:
+        response = False
         logger.error(e)
 
     # Add code for getting value from TextRact
