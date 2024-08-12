@@ -30,7 +30,7 @@ class DataAnalyzerUtils:
        
         exec(open(self.FILENAME).read(), locals)
         os.remove(self.FILENAME)
-        os.remove('df_small.csv')
+        os.remove(self.file_name)
         return locals['x_axis'], locals['y_axis'], locals['x_label'], locals['y_label']
     
     def extract_code(self, code_string):
@@ -46,4 +46,4 @@ class DataAnalyzerUtils:
     def create_csv(self):
         csv_url = self.get_file_url()
         df = wr.s3.read_csv(csv_url)
-        df.to_csv('df_small.csv')
+        df.to_csv(self.file_name)
