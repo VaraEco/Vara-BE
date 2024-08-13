@@ -9,6 +9,7 @@ from services.chatbot_services import Model
 from services.template_services import Template
 from services.vectorstore_services import Vectorstore
 from services.chat_history_services import ChatHistory
+from services.agent_services import AgentServices 
 
 class CreateAgent:
     
@@ -96,4 +97,18 @@ class CreateAgent:
             memory=memory
         )
         return agent"""
+    
+    @staticmethod
+    def get_summary_chain():
+        agent_services = AgentServices()  # Create an instance of AgentServices
+        return agent_services.create_summarization_chain()
+
+    @staticmethod
+    def create_summary(text):
+        summary_chain = CreateAgent.get_summary_chain()
+        summary = summary_chain.run(text)
+        return summary
+
+    
+    
 

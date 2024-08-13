@@ -117,3 +117,11 @@ class Template:
         base_prompt = hub.pull("langchain-ai/react-agent-template")
         prompt = base_prompt.partial(instructions=instructions)
         return prompt
+    
+    @staticmethod
+    def get_summary_prompt():
+        summary_system_prompt = (
+            "Please summarize the following text as concisely as possible:\n\n{text}"
+        )
+        summary_prompt = ChatPromptTemplate.from_template(summary_system_prompt)
+        return summary_prompt

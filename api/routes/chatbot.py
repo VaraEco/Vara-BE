@@ -26,3 +26,18 @@ def get_chatbot_response():
     CreateAgent.check_message_history(user_id)
     logger.info(f'Request served for userId: {user_id}')
     return jsonify({'response':res})
+
+@chatbot_bp.route('/chatbot/summarize', methods=['POST'])
+def summarize_text():
+    data = request.get_json()
+    if not data or 'text' not in data or 'userId' not in data:
+        return jsonify({'error': 'Invalid request'}), 400
+
+    text_to_summarize = data['text']
+    user_id = data['userId']
+    logger.info(f'Summarization request received from userId: {user_id}')
+    
+    summary = CreateAgent.create_summary(text_to_summarize)
+    
+    logger.info(f'Summarization request served for userId: {user_id}')
+    return jsonify({'summary': summary, 'userId': user_id})
