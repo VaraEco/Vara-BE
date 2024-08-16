@@ -1,6 +1,8 @@
+from venv import logger
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
 from langchain import hub
+import logging
 
 class Template:
     def get_prompt_template():
@@ -117,11 +119,20 @@ class Template:
         base_prompt = hub.pull("langchain-ai/react-agent-template")
         prompt = base_prompt.partial(instructions=instructions)
         return prompt
-    
+
+
     @staticmethod
     def get_summary_prompt():
-        summary_system_prompt = (
-            "Please summarize the following text as concisely as possible:\n\n{text}"
-        )
-        summary_prompt = ChatPromptTemplate.from_template(summary_system_prompt)
-        return summary_prompt
+        try:
+            summary_template = """
+            Summarize the following text in a concise manner:
+
+            {text}
+
+            Summary:
+            """
+            summary_prompt = ChatPromptTemplate.from_template(summary_template)
+            return summary_prompt
+        except Exception as e:
+            logger.error(f"Error in get_summary_prompt: {str(e)}")
+            raise

@@ -31,15 +31,3 @@ class AgentServices:
         first_level_chain = first_level_prompt | model | StrOutputParser()
         return first_level_chain
     
-    def create_summarization_chain(self):
-        # Retrieve the prompt template for summarization
-        summary_prompt = Template.get_summary_prompt()
-        
-        # Get the language model
-        model = Model.get_model()
-        
-        # Create and return an LLMChain for summarization
-        summarization_chain = summary_prompt | model | StrOutputParser()
-        
-        return summarization_chain
-

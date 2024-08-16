@@ -1,3 +1,4 @@
+from venv import logger
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
@@ -9,7 +10,9 @@ from services.chatbot_services import Model
 from services.template_services import Template
 from services.vectorstore_services import Vectorstore
 from services.chat_history_services import ChatHistory
-from services.agent_services import AgentServices 
+from langchain_core.output_parsers import StrOutputParser
+import logging
+
 
 class CreateAgent:
     
@@ -97,18 +100,14 @@ class CreateAgent:
             memory=memory
         )
         return agent"""
-    
+
     @staticmethod
     def get_summary_chain():
-        agent_services = AgentServices()  # Create an instance of AgentServices
-        return agent_services.create_summarization_chain()
-
-    @staticmethod
-    def create_summary(text):
-        summary_chain = CreateAgent.get_summary_chain()
-        summary = summary_chain.run(text)
-        return summary
-
-    
-    
-
+        try:
+            llm = Model.get_model()
+            summary_prompt = Template.get_summary_prompt()
+            summary_chain = summary_prompt | llm | StrOutputParser()
+            return summary_chain
+        except Exception as e:
+            logger.error(f"Error in get_summary_chain: {str(e)}")
+            raise
