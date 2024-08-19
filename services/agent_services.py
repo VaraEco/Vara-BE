@@ -18,12 +18,20 @@ class AgentServices:
         agent_executor = AgentExecutor(agent=agent, tools=self.instruction_generation_tools, verbose=True, handle_parsing_errors=True)
         return agent_executor
     
-    def get_code_generation_agent_executor(self, file):
+    def get_graph_code_generation_agent_executor(self, file):
         code_generation_prompt = Template.last_level_instruction_prompt(file)
         model = Model.get_model()
         agent = create_react_agent(model, self.code_generation_tools, code_generation_prompt)
         agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True, handle_parsing_errors=True)
         return agent_executor
+    
+    def get_data_code_generation_agent_executor(self, file):
+        code_generation_prompt = Template.last_level_data_instruction_prompt(file)
+        model = Model.get_model()
+        agent = create_react_agent(model, self.code_generation_tools, code_generation_prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True, handle_parsing_errors=True)
+        return agent_executor
+
 
     def get_first_level_chain(self):
         first_level_prompt = Template.get_first_step_prompt()
@@ -36,3 +44,9 @@ class AgentServices:
         model = Model.get_model()
         type_of_response_chain = type_of_response_prompt | model | StrOutputParser()
         return type_of_response_chain
+    
+    def get_verification_chain(self):
+        verification_prompt = Template.get_verification_prompt()
+        model = Model.get_model()
+        verification_chain = verification_prompt | model | StrOutputParser()
+        return verification_chain

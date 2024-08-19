@@ -56,7 +56,9 @@ class Template:
 
     def get_first_step_prompt():
         first_step_query = """
-        Given a query to create a specific type of graph, convert the query into a series of steps involved in preparing the data needed to generate that graph. Ensure the steps include all necessary data transformations, aggregations, and calculations required for the graph. The transformed query should not mention the graph itself but should focus on the data preparation process. Here is an example for clarification:
+        You will be given a query which asks to create a specific type of graph or just perform simple data manipulation
+        to get answers. If the query asks for simple data manipulation, return the transformed query which specifies how to get the data specified in the query. If the query asks
+        for a specific type of graph, convert the query into a series of steps involved in preparing the data needed to generate that graph. Ensure the steps include all necessary data transformations, aggregations, and calculations required for the graph. The transformed query should not mention the graph itself but should focus on the data preparation process. Here is an example for clarification:
 
         Original Query:
         "Give me a pie chart of CO2 emissions for all the days."
@@ -92,7 +94,7 @@ class Template:
         3. Understand the kind of data manipulation that would be required.
         4. Identify the columns that are of interest. 
         5. Once all these things are identified, generate instructions that guide on how the data manipulation should be done.
-        6. Do not give instructions which say generate the graph, the grph generation code is not required, only data manipulation code is needed.
+        6. Do not give instructions which say graph or visulaize, the graph or visualization code is not required, only data manipulation code is needed.
 
         Here is the information you will have access to:
 
@@ -107,11 +109,13 @@ class Template:
         return prompt_code_instruct
     
     def last_level_instruction_prompt(file):
-        instructions = """You are an agent designed to write and execute python code to answer questions.
-        You have access to a python REPL, which you can use to execute python code.
-        Generate Python code to manipulate and prepare data for a graph based on the following inputs:
+        instructions = """You are an agent designed to write python code to answer questions.
+        You have access to a python REPL, which you can use to execute python code to verify the generated code.
+        Generate Python code to manipulate and prepare data based on the following inputs:
 
         CSV Name: {file}
+        When you generate and output the code, the code should be separated from the other text by making it 
+        start with ```python and end with ```.
         Please generate Python code that follows the instructions given:
 
         Ensure the code is clear, well-documented, and suitable for visualizing the data as specified.
@@ -121,10 +125,57 @@ class Template:
 
         If you get an error, debug your code and try again.
         Return the generated code.
+        It is extremely important that you the put data that's supposed to be on the 
+        X-axis in the variable 'x_axis' and the data that's supposed to be on the Y-axis in the cariable 'y_axis'.
+        Additionally, put the labels of the X-axis in the variable 'x_label' and the labels of the Y-axis in the variable 'y_label'
         If it does not seem like you can write code to answer the question, just return "I don't know" as the answer.
 
         """
         base_prompt = hub.pull("langchain-ai/react-agent-template")
         instructions = instructions.format(file=file)
         prompt = base_prompt.partial(instructions=instructions)
+        return prompt
+    
+    def last_level_data_instruction_prompt(file):
+        instructions = """
+        You are an agent designed to generate Python code for data manipulation.
+
+        - You have access to a Python REPL to execute and verify the generated code.
+        - When you generate and output the code, the code should be separated from the other text by making it 
+        start with ```python and end with ```.
+        - The goal is to write Python code to perform specific data operations based on the following inputs:
+
+            CSV File: {file}
+
+        - The code should:
+            - Be clear, well-documented, and suitable for data analysis.
+            - Perform the required operations and store the result in a variable named 'return_value'.
+            - If applicable, store any relevant label or description in a variable named 'label'.
+
+        - If the code fails, debug it and try again.
+        - It is extremely important to put the final result value in the variable named 'return_value' and the relevant label
+        in the variable named 'label'. 
+        - If you cannot generate the required code, return "I don't know" as the response.
+
+        Return the generated code when complete.
+        """
+        base_prompt = hub.pull("langchain-ai/react-agent-template")
+        instructions = instructions.format(file=file)
+        prompt = base_prompt.partial(instructions=instructions)
+        return prompt
+    
+    def get_verification_prompt():
+        instructions = """
+        You are an assistant designed to process user queries related to generating graphs or performing data manipulation. Your task is to evaluate the user's query and determine if it contains sufficient information to proceed.
+        You have access to column names, given by Column Names of the data file in question. Use the column names along with the query to determine if the details given are sufficient.
+        1. If the query provides clear and sufficient details about the fields of interest (e.g., specific columns, data points, type of return value), return only the word "okay".
+        2. If the query lacks details or is ambiguous, return the message: "Please clarify your request with more specific details about the fields of interest."
+
+        Assess the user's query and respond accordingly.
+
+        Column Names : {schema}
+        Query: {query}
+
+        """
+        prompt = ChatPromptTemplate.from_template(instructions)
         return prompt
