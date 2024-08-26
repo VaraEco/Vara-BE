@@ -13,5 +13,6 @@ instance/
 .cache/
 *.pyo
 *.pyd
+*.pyc
 __pycache__
 services/__pycache__

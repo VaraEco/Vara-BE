@@ -1,14 +1,17 @@
 from flask import Blueprint, request, jsonify
 import logging
+
 from services.agent_services import AgentServices
 from utils.data_analyzer_utils import DataAnalyzerUtils
 import pandas as pd
+
 
 data_analyzer_bp = Blueprint('data_analyzer', __name__)
 logger = logging.getLogger('vara-backend')
 
 @data_analyzer_bp.route('/data/analyze', methods=['POST'])
 def get_data_analysis():
+
     MAX_RETRIES = 3
     if request.content_type == 'application/octet-stream':
         byte_array = request.data
@@ -75,5 +78,3 @@ def get_data_analysis():
             y_axis = y_axis.tolist()
         return jsonify({'type':type_of_response, 'x':x_axis, 'y':y_axis, 'x_label':x_label, 'y_label':y_label})
     
-
-
