@@ -7,6 +7,7 @@ class ChatHistory:
         if session_id not in self.store:
             self.store[session_id] = ChatMessageHistory()
         return self.store[session_id]
+
     
     def check_and_delete(self, session_id):
         if len(self.store[session_id].messages) >= 12:
