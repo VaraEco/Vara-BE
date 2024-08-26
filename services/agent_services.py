@@ -45,8 +45,9 @@ class AgentServices:
         type_of_response_chain = type_of_response_prompt | model | StrOutputParser()
         return type_of_response_chain
     
-    def get_verification_chain(self):
-        verification_prompt = Template.get_verification_prompt()
+    def get_verification_agent(self, file):
+        verification_prompt = Template.get_verification_prompt(file)
         model = Model.get_model()
-        verification_chain = verification_prompt | model | StrOutputParser()
-        return verification_chain
+        agent = create_react_agent(model, self.code_generation_tools, verification_prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=self.code_generation_tools, verbose=True, handle_parsing_errors=True)
+        return agent_executor

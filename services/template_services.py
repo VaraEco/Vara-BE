@@ -164,18 +164,23 @@ class Template:
         prompt = base_prompt.partial(instructions=instructions)
         return prompt
     
-    def get_verification_prompt():
+    def get_verification_prompt(file):
         instructions = """
-        You are an assistant designed to process user queries related to generating graphs or performing data manipulation. Your task is to evaluate the user's query and determine if it contains sufficient information to proceed.
-        You have access to column names, given by Column Names of the data file in question. Use the column names along with the query to determine if the details given are sufficient.
+        You are an agent designed to process user queries related to generating graphs or performing data manipulation. Your task is to evaluate the user's query and determine if it contains sufficient information to proceed.
+        You have access to a python REPL, which you can use to execute python code. 
+        You have acess to the name of the file under 'File Name'. Import the file into a pandas dataframe, invoke the 'columns' and 'info()' to understand the column names and the data that is present. 
+        Use the column names and data along with the query to determine if the details given are sufficient.
+        
         1. If the query provides clear and sufficient details about the fields of interest (e.g., specific columns, data points, type of return value), return only the word "okay".
         2. If the query lacks details or is ambiguous, return the message: "Please clarify your request with more specific details about the fields of interest."
 
+        If the query has sufficient information, it is extremely important that you only return one word which is 'okay', do not return anything else if the 
+        query is sufficient.
         Assess the user's query and respond accordingly.
-
-        Column Names : {schema}
-        Query: {query}
+        File Name : {file}
 
         """
-        prompt = ChatPromptTemplate.from_template(instructions)
+        base_prompt = hub.pull("langchain-ai/react-agent-template")
+        instructions = instructions.format(file=file)
+        prompt = base_prompt.partial(instructions=instructions)
         return prompt

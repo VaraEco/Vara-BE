@@ -19,11 +19,12 @@ def get_data_analysis():
     agent_services = AgentServices()
     data_analyzer_utils = DataAnalyzerUtils(file_name)
     data_analyzer_utils.create_csv()
-    verification_chain = agent_services.get_verification_chain()
-    verification_response = verification_chain.invoke({'query':query, 'schema':pd.read_csv(file_name)})
-    if verification_response.lower()!='okay':
+    verification_agent = agent_services.get_verification_agent(file_name)
+   
+    verification_response = verification_agent.invoke({'input':query})
+    if verification_response['output'].lower()!='okay':
         data_analyzer_utils.remove_file(file_name)
-        return jsonify({'type':'retry', 'message':verification_response})
+        return jsonify({'type':'retry', 'message':verification_response['output']})
     type_of_response_chain = agent_services.get_type_of_response_chain()
     type_of_response = type_of_response_chain.invoke({'query':query})
 
@@ -48,7 +49,7 @@ def get_data_analysis():
                         continue  
         finally:
             data_analyzer_utils.remove_file(file_name)
-        if type(data_return) is not int and type(data_return) is not str:
+        if type(data_return) is not int and type(data_return) is not str and type(data_return) is not list:
             data_return = data_return.tolist()
         return jsonify({'type':type_of_response, 'data':data_return, 'label':label})
     else:
