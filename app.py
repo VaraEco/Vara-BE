@@ -19,6 +19,9 @@ app.register_blueprint(document_analyzer_bp, url_prefix='/api')
 app.register_blueprint(document_upload_bp, url_prefix='/api')
 app.register_blueprint(data_analyzer_bp, url_prefix='/api')
 
+from api.routes.whatsapp_bot import whatsapp_bot_bp 
+app.register_blueprint(whatsapp_bot_bp, url_prefix='/whatsapp')
+
 @app.route('/')
 def compute():
     return jsonify({'result': "Success"})
