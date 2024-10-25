@@ -6,6 +6,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 app.config.from_object(Config)
 logger = Logging.set_logging()
 logger.info(f'Initial Config MODEL_ID: {app.config["MODEL_ID"]}')
@@ -18,6 +19,9 @@ app.register_blueprint(chatbot_bp, url_prefix='/api')
 app.register_blueprint(document_analyzer_bp, url_prefix='/api')
 app.register_blueprint(document_upload_bp, url_prefix='/api')
 app.register_blueprint(data_analyzer_bp, url_prefix='/api')
+
+from api.routes.whatsapp_bot import whatsapp_bot_bp 
+app.register_blueprint(whatsapp_bot_bp, url_prefix='/api')
 
 @app.route('/')
 def compute():
