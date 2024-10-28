@@ -22,6 +22,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # A dictionary to hold temporary user sessions for WhatsApp interaction
 user_sessions = {}
+user_data = {}
 
 # Schema for the fields we expect from users (order matters)
 schema_fields = ['value', 'log_unit', 'log_date', 'evidence_url', 'evidence_name']
@@ -47,7 +48,13 @@ def update_user_join_status(phone_number, joined_status):
     pass  # No-op for static logic
 
 # Setup WhatsApp service for a user
-def setup_whatsapp_service(user_phone):
+def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
+    user_data['whatsapp'] = {
+                'process_id': process_id,
+                'para_id': para_id,
+                'data_collection_id': data_collection_id
+        }
+  
     try:
         if is_user_joined(user_phone):
             reset_user_session(f"whatsapp:{user_phone}")
@@ -67,9 +74,13 @@ def setup_whatsapp_service(user_phone):
             )
             reset_user_session(f"whatsapp:{user_phone}")
             return {'status': 'success', 'message': f"Join code sent to {TWILIO_WHATSAPP_NUM} with {join_code}. Please follow the instructions to join WhatsApp bot, and say Hello!."}
+        
+       
     except Exception as e:
         logging.error(f"Error setting up WhatsApp service for {user_phone}: {e}")
         return {'status': 'error', 'message': 'Failed to send join instructions.'}
+
+
 
 # Process incoming WhatsApp messages
 def process_whatsapp_message(from_number, incoming_msg):
@@ -178,6 +189,9 @@ def save_user_data_to_db(from_number, data):
             'log_unit': data['log_unit'],
             'evidence_url': data.get('evidence_url'),
             'evidence_name': data.get('evidence_name'),
+            'process_id': user_data["whatsapp"].get('process_id'),  # Accessing user_data
+            'para_id': user_data["whatsapp"].get('para_id'),
+            'data_collection_id': user_data["whatsapp"].get('data_collection_id')
         }).execute()
 
         client.messages.create(
