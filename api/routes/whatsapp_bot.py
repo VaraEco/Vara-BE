@@ -12,24 +12,31 @@ log_handler.setFormatter(formatter)
 logging.getLogger().addHandler(log_handler)
 logging.getLogger().setLevel(logging.INFO)
 
+# Dictionary to hold user sessions data
+user_sessions = {}
+
 # API route to start WhatsApp interaction when a user provides their phone number
 @whatsapp_bot_bp.route('/setup_whatsapp', methods=['POST'])
 def setup_whatsapp():
     try:
         data = request.json
         user_phone = data.get('phone_number')
+        process_id = data.get('process_id')
+        para_id = data.get('para_id')
+        data_collection_id = data.get('data_collection_id')
 
         if not user_phone:
             logging.error("Phone number not provided")
             return jsonify({'status': 'error', 'message': 'Phone number is required'}), 400
 
-        response = setup_whatsapp_service(user_phone)
+
+        # Set up WhatsApp service
+        response = setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id)
         return jsonify(response), 200
     except Exception as e:
         logging.error(f"Error in setup_whatsapp: {str(e)}")
         return jsonify({'status': 'error', 'message': 'An error occurred while setting up WhatsApp.'}), 500
 
-# Webhook to handle incoming WhatsApp messages
 @whatsapp_bot_bp.route('/webhooks', methods=['POST'])
 def webhooks():
     try:
