@@ -3,15 +3,15 @@ import re
 from supabase import create_client, Client
 from twilio_config import client, TWILIO_WHATSAPP_NUM
 import logging
-import threading
 import os
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Load environment variables
 load_dotenv()
 
-# Constants for message intervals (in seconds)
-COLLECT_DATA_INTERVAL = 86400  # 24 hours in seconds
+# Constants for message intervals
+COLLECT_DATA_INTERVAL_HOURS = 24  # 24 hours
 
 # Supabase credentials
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -29,6 +29,10 @@ schema_fields = ['value', 'log_unit', 'log_date', 'evidence_url', 'evidence_name
 
 # Static user joined status (for testing purposes, you can adjust as needed)
 USER_JOINED = True  # Set to True if the user is joined, False otherwise
+
+# Initialize APScheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
 
 # Reset user session
 def reset_user_session(phone_number):
@@ -65,7 +69,6 @@ def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
             )
             return {'status': 'success', 'message': f"Please send the message '{join_code}' to this WhatsApp number {TWILIO_WHATSAPP_NUM} to join the sandbox and say Hello!"}
         else:
-              # Fetch from environment variables
             sandbox_number = TWILIO_WHATSAPP_NUM
             client.messages.create(
                 body=f"Please send the message '{join_code}' to {sandbox_number} to join the sandbox.",
@@ -75,12 +78,9 @@ def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
             reset_user_session(f"whatsapp:{user_phone}")
             return {'status': 'success', 'message': f"Join code sent to {TWILIO_WHATSAPP_NUM} with {join_code}. Please follow the instructions to join WhatsApp bot, and say Hello!."}
         
-       
     except Exception as e:
         logging.error(f"Error setting up WhatsApp service for {user_phone}: {e}")
         return {'status': 'error', 'message': 'Failed to send join instructions.'}
-
-
 
 # Process incoming WhatsApp messages
 def process_whatsapp_message(from_number, incoming_msg):
@@ -144,7 +144,6 @@ def handle_data_collection(from_number, incoming_msg):
         # Process evidence_name
         elif current_field == 'evidence_name':
             user_session['data']['evidence_name'] = incoming_msg
-        
 
         # Proceed to the next field
         if field_index < len(schema_fields) - 1:
@@ -189,7 +188,7 @@ def save_user_data_to_db(from_number, data):
             'log_unit': data['log_unit'],
             'evidence_url': data.get('evidence_url'),
             'evidence_name': data.get('evidence_name'),
-            'process_id': user_data["whatsapp"].get('process_id'),  # Accessing user_data
+            'process_id': user_data["whatsapp"].get('process_id'),
             'para_id': user_data["whatsapp"].get('para_id'),
             'data_collection_id': user_data["whatsapp"].get('data_collection_id')
         }).execute()
@@ -210,17 +209,23 @@ def save_user_data_to_db(from_number, data):
             to=from_number
         )
 
-# Schedule the next data request in 24 hours
 def schedule_next_data_request(phone_number):
     def ask_for_data():
         reset_user_session(phone_number)
         client.messages.create(
-            body="Let's collect new information. Please provide the value.",
+            body="Let's collect new information. Please say hello and provide the value.",
             from_=TWILIO_WHATSAPP_NUM,
             to=phone_number
         )
         logging.info(f"Next data request sent to {phone_number}")
 
-    timer = threading.Timer(COLLECT_DATA_INTERVAL, ask_for_data)  # 24-hour delay
-    timer.start()
-    logging.info(f"Scheduled next data request for {phone_number} in 24 hours.")
+    # Schedule the job to run every 5 minutes (for testing purposes)
+    scheduler.add_job(
+        ask_for_data,
+        'interval',
+        hours=COLLECT_DATA_INTERVAL_HOURS,  # Set to 5 minutes for testing
+        id=f"data_request_{phone_number}",
+        replace_existing=True  # Replaces the job if it already exists
+    )
+    logging.info(f"Scheduled next data request for {phone_number} in 24 hour (testing mode).")
+
