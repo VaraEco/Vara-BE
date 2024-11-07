@@ -85,7 +85,6 @@ def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
 # Process incoming WhatsApp messages
 def process_whatsapp_message(from_number, incoming_msg):
     try:
-        print(from_number)
         if from_number not in user_sessions:
             reset_user_session(from_number)
 
@@ -117,18 +116,6 @@ def process_whatsapp_message(from_number, incoming_msg):
 def handle_data_collection(from_number, incoming_msg):
     user_session = user_sessions[from_number]
     field_index = user_session['field_index']
-    
-    # Ensure field_index is within bounds
-    if field_index >= len(schema_fields):
-        logging.error("Field index out of bounds")
-        reset_user_session(from_number)
-        client.messages.create(
-            body="Welcome Back!. Let's start over. Please say hello to restart.",
-            from_=TWILIO_WHATSAPP_NUM,
-            to=f"whatsapp:{from_number}"
-        )
-        return {'status': 'error, session reset'}
-
     current_field = schema_fields[field_index]
 
     try:
@@ -168,7 +155,7 @@ def handle_data_collection(from_number, incoming_msg):
 
         # All fields collected
         save_user_data_to_db(f"{from_number}", user_session['data'])
-        reset_user_session(f"whatsapp:{from_number}")
+        reset_user_session(from_number)
 
     except Exception as e:
         logging.error(f"Error collecting data from {from_number}: {e}")
@@ -243,58 +230,3 @@ def schedule_next_data_request(phone_number):
         replace_existing=True  # Replaces the job if it already exists
     )
     logging.info(f"Scheduled next data request for {phone_number} in 24 hour (testing mode).")
-
-
-
-
-
-# def handle_data_collection(from_number, incoming_msg):
-#     user_session = user_sessions[from_number]
-#     field_index = user_session['field_index']
-    
-#     # Ensure field_index is within bounds
-#     if field_index >= len(schema_fields):
-#         logging.error("Field index out of bounds")
-#         reset_user_session(from_number)
-#         client.messages.create(
-#             body="An error occurred. Let's start over. Please say hello to restart.",
-#             from_=TWILIO_WHATSAPP_NUM,
-#             to=from_number
-#         )
-#         return {'status': 'error, session reset'}
-
-#     current_field = schema_fields[field_index]
-
-#     try:
-#         # Process value
-#         if current_field == 'value':
-#             if not re.search(r'\d+', incoming_msg):
-#                 return request_field(from_number, 'Invalid value. Please provide a numeric value.', 'value')
-#             user_session['data']['value'] = incoming_msg
-#         # Process log_unit
-#         elif current_field == 'log_unit':
-#             user_session['data']['log_unit'] = incoming_msg
-#         # Process log_date
-#         elif current_field == 'log_date':
-#             log_date = validate_date(incoming_msg)
-#             if not log_date:
-#                 return request_field(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.', 'log_date')
-#             user_session['data']['log_date'] = log_date
-#         # Process evidence_url
-#         elif current_field == 'evidence_url':
-#             if incoming_msg.lower() == 'no evidence':
-#                 user_session['data']['evidence_url'] = None
-#                 user_session['field_index'] += 2  # Skip evidence_name
-#             elif incoming_msg.startswith('http'):
-#                 user_session['data']['evidence_url'] = incoming_msg
-#             else:
-#                 return request_field(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence".', 'evidence_url')
-#         # Process evidence_name only if there is an evidence URL
-#         elif current_field == 'evidence_name':
-#             user_session['data']['evidence_name'] = incoming_msg
-
-#         # Proceed to the next field
-#         user_session['field_index'] += 1
-#         if user_session['field_index'] < len(schema_fields):
-#             next_field = schema_fields[user_session['field_index']]
-#             return request_field(from_number, f"Please provide {next_field.replace('_', ' ')}.", next_field)
