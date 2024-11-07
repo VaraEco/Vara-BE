@@ -25,7 +25,7 @@ def setup_whatsapp():
         process_id = data.get('process_id')
         para_id = data.get('para_id')
         data_collection_id = data.get('data_collection_id')
-        
+
         if not user_phone:
             logging.error("Phone number not provided")
             return jsonify({'status': 'error', 'message': 'Phone number is required'}), 400
@@ -38,7 +38,6 @@ def setup_whatsapp():
             'para_id': para_id,
             'data_collection_id': data_collection_id
         }
-
         # Set up WhatsApp service
         response = setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id)
         return jsonify(response), 200
@@ -63,7 +62,6 @@ def webhooks():
         else:
             logging.error("Invalid phone number format")
             return jsonify({'status': 'error', 'message': 'Invalid phone number format'}), 400
-
         # Check if the cleaned incoming phone number matches the stored phone number in user_sessions
         if from_number_cleaned not in user_sessions or user_sessions[from_number_cleaned]['phone_number'] != from_number_cleaned:
             logging.info(f"Unauthorized message from {from_number_cleaned}. Ignoring.")
