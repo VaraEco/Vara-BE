@@ -32,7 +32,7 @@ def setup_whatsapp():
 
         # Store the phone number in the session
         user_sessions[user_phone] = {
-            'phone_number': user_phone,
+            'phone_number': f'+{user_phone}',
             'status': 'waiting_for_join_code',
             'process_id': process_id,
             'para_id': para_id,
