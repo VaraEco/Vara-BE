@@ -29,17 +29,21 @@ def setup_whatsapp():
         if not user_phone:
             logging.error("Phone number not provided")
             return jsonify({'status': 'error', 'message': 'Phone number is required'}), 400
+        
+
+        user_phone1=f'+{user_phone}'
 
         # Store the phone number in the session
-        user_sessions[user_phone] = {
-            'phone_number': f'+{user_phone}',
+        user_sessions[user_phone1] = {
+            'phone_number': user_phone1,
             'status': 'waiting_for_join_code',
             'process_id': process_id,
             'para_id': para_id,
             'data_collection_id': data_collection_id
         }
+        print(user_sessions)
         # Set up WhatsApp service
-        response = setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id)
+        response = setup_whatsapp_service(user_phone1, process_id, para_id, data_collection_id)
         return jsonify(response), 200
     except Exception as e:
         logging.error(f"Error in setup_whatsapp: {str(e)}")
