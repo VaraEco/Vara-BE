@@ -17,66 +17,79 @@ COLLECT_DATA_INTERVAL_HOURS = 24  # 24 hours
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 join_code = os.getenv('WHATSAPP_JOIN_CODE')
+
 # Create Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # A dictionary to hold temporary user sessions for WhatsApp interaction
 user_sessions = {}
-user_data = {}
 
 # Schema for the fields we expect from users (order matters)
 schema_fields = ['value', 'log_unit', 'log_date', 'evidence_url', 'evidence_name']
-
-# Static user joined status (for testing purposes, you can adjust as needed)
-USER_JOINED = True  # Set to True if the user is joined, False otherwise
 
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
 scheduler.start()
 
-# Reset user session
 def reset_user_session(phone_number):
+    if phone_number not in user_sessions:
+        user_sessions[phone_number] = {}
+        
+    persistent_data = user_sessions[phone_number].get('persistent_data', {})
+    
     user_sessions[phone_number] = {
         'field_index': 0,
         'data': {},
-        'status': 'waiting_for_join_code'
+        'status': 'waiting_for_join_code',
+        'persistent_data': persistent_data  # Retain process_id, para_id, data_collection_id
     }
-    logging.info(f"User session reset for {phone_number}")
+    logging.info(f"User session reset for {phone_number}. IDs retained: {bool(persistent_data)}")
+
+print(user_sessions)
+
+
+def send_whatsapp_message(to_number, message):
+    client.messages.create(
+        body=message,
+        from_=TWILIO_WHATSAPP_NUM,
+        to=f'whatsapp:{to_number}'
+    )
 
 # Check if the user is joined (static logic)
 def is_user_joined(phone_number):
-    return USER_JOINED
-
-# Update user's join status (no-op for static logic)
-def update_user_join_status(phone_number, joined_status):
-    pass  # No-op for static logic
+    # This should be replaced with actual logic for checking user status
+    return True  # Set to True if the user is joined, False otherwise
 
 # Setup WhatsApp service for a user
 def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
-    user_data['whatsapp'] = {
-                'process_id': process_id,
-                'para_id': para_id,
-                'data_collection_id': data_collection_id
+    # Store user-specific data in the session
+    user_sessions[user_phone] = {
+        'field_index': 0,
+        'data': {},
+        'status': 'waiting_for_join_code',
+        'persistent_data': {
+            'process_id': process_id,
+            'para_id': para_id,
+            'data_collection_id': data_collection_id
         }
-  
+    }
+
     try:
         if is_user_joined(user_phone):
-            reset_user_session(user_phone)  # Corrected session reset
             client.messages.create(
                 body="Welcome! Let's start by collecting some information. Please say hello.",
                 from_=TWILIO_WHATSAPP_NUM,
                 to=f"whatsapp:{user_phone}"
             )
-            return {'status': 'success', 'message': f"Please send the message '{join_code}' to this WhatsApp number {TWILIO_WHATSAPP_NUM} to join the sandbox and say Hello!"}
+            return {'status': 'success', 'message': f"Join code sent to {TWILIO_WHATSAPP_NUM} with {join_code}. Please follow the instructions to join WhatsApp bot, and say Hello!"}
         else:
-            sandbox_number = TWILIO_WHATSAPP_NUM
             client.messages.create(
-                body=f"Please send the message '{join_code}' to {sandbox_number} to join the sandbox.",
+                body=f"Please send the message '{join_code}' to join the sandbox.",
                 from_=TWILIO_WHATSAPP_NUM,
                 to=f"whatsapp:{user_phone}"
             )
-            reset_user_session(user_phone)  # Corrected session reset
-            return {'status': 'success', 'message': f"Join code sent to {TWILIO_WHATSAPP_NUM} with {join_code}. Please follow the instructions to join WhatsApp bot, and say Hello!"}
+            reset_user_session(user_phone)
+            return {'status': 'success', 'message': f"Join code sent. Please follow the instructions to join WhatsApp bot and say Hello!"}
         
     except Exception as e:
         logging.error(f"Error setting up WhatsApp service for {user_phone}: {e}")
@@ -113,6 +126,7 @@ def process_whatsapp_message(from_number, incoming_msg):
         logging.error(f"Error processing message from {from_number}: {e}")
         return {'status': 'error'}
 
+# Handle the data collection process
 def handle_data_collection(from_number, incoming_msg):
     user_session = user_sessions[from_number]
     field_index = user_session['field_index']
@@ -152,9 +166,8 @@ def handle_data_collection(from_number, incoming_msg):
             next_field = schema_fields[user_session['field_index']]
             return request_field(f"whatsapp:{from_number}", f"Please provide {next_field.replace('_', ' ')}.", next_field)
         
-
         # All fields collected
-        save_user_data_to_db(f"{from_number}", user_session['data'])
+        save_user_data_to_db(from_number, user_session['data'], user_sessions[from_number])
         reset_user_session(from_number)
 
     except Exception as e:
@@ -166,12 +179,14 @@ def handle_data_collection(from_number, incoming_msg):
         )
         return {'status': 'error'}
 
+# Validate date format
 def validate_date(date_str):
     try:
         return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
     except ValueError:
         return None
 
+# Request a specific field from the user
 def request_field(phone_number, message, field):
     client.messages.create(
         body=message,
@@ -181,18 +196,28 @@ def request_field(phone_number, message, field):
     logging.info(f"Requested {field} from {phone_number}")
     return {'status': 'waiting for correct data'}
 
-# Save collected data to the database
-def save_user_data_to_db(from_number, data):
+def save_user_data_to_db(from_number, data, user_session):
     try:
+        # Retrieve persistent IDs from session
+        persistent_data = user_session.get('persistent_data', {})
+        process_id = persistent_data.get('process_id')
+        para_id = persistent_data.get('para_id')
+        data_collection_id = persistent_data.get('data_collection_id')
+
+        if not process_id or not para_id or not data_collection_id:
+            logging.error("Missing process_id, para_id, or data_collection_id for saving data.")
+            return {'status': 'error', 'message': 'Missing required IDs for saving data.'}
+
+        # Insert data into Supabase
         supabase.table('parameter_log').insert({
             'log_date': data['log_date'],
             'value': data['value'],
             'log_unit': data['log_unit'],
             'evidence_url': data.get('evidence_url'),
             'evidence_name': data.get('evidence_name'),
-            'process_id': user_data["whatsapp"].get('process_id'),
-            'para_id': user_data["whatsapp"].get('para_id'),
-            'data_collection_id': user_data["whatsapp"].get('data_collection_id')
+            'process_id': process_id,
+            'para_id': para_id,
+            'data_collection_id': data_collection_id
         }).execute()
 
         client.messages.create(
@@ -200,8 +225,13 @@ def save_user_data_to_db(from_number, data):
             from_=TWILIO_WHATSAPP_NUM,
             to=f"whatsapp:{from_number}"
         )
-        logging.info(f"Data saved for {from_number}")
+        logging.info(f"Data saved for {from_number} with process_id: {process_id}, para_id: {para_id}, data_collection_id: {data_collection_id}")
+        
+        # Schedule the next data request
         schedule_next_data_request(f"whatsapp:{from_number}")
+
+        # Reset user session but retain persistent IDs
+        reset_user_session(from_number)
 
     except Exception as e:
         logging.error(f"Error saving data: {e}")
@@ -211,9 +241,12 @@ def save_user_data_to_db(from_number, data):
             to=f"whatsapp:{from_number}"
         )
 
+
+# Schedule next data request
 def schedule_next_data_request(phone_number):
     def ask_for_data():
-        reset_user_session(phone_number)
+        # Retain the IDs while resetting the session for a new data collection
+        reset_user_session(phone_number, keep_ids=True)
         client.messages.create(
             body="Let's collect new information. Please say hello and provide the value.",
             from_=TWILIO_WHATSAPP_NUM,
@@ -221,12 +254,13 @@ def schedule_next_data_request(phone_number):
         )
         logging.info(f"Next data request sent to {phone_number}")
 
-    # Schedule the job to run every 5 minutes (for testing purposes)
+    # Schedule the job to run every 24 hours
     scheduler.add_job(
         ask_for_data,
         'interval',
-        hours=COLLECT_DATA_INTERVAL_HOURS,  # Set to 5 minutes for testing
+        hours=COLLECT_DATA_INTERVAL_HOURS,
         id=f"data_request_{phone_number}",
-        replace_existing=True  # Replaces the job if it already exists
+        replace_existing=True
     )
-    logging.info(f"Scheduled next data request for {phone_number} in 24 hour (testing mode).")
+    logging.info(f"Scheduled next data request for {phone_number} in 24 hours.")
+
