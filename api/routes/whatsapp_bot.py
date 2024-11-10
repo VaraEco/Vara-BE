@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from services.whatsapp_bot_service import setup_whatsapp_service, process_whatsapp_message
+from services.whatsapp_bot_service import setup_whatsapp_service, process_whatsapp_message, send_whatsapp_message
 import logging
 import re
 
@@ -16,6 +16,12 @@ logging.getLogger().setLevel(logging.INFO)
 # Dictionary to hold user sessions data
 user_sessions = {}
 
+# Function to reset a specific user session
+def reset_user_session(phone_number):
+    if phone_number in user_sessions:
+        del user_sessions[phone_number]
+    logging.info(f"User session reset for {phone_number}")
+
 # API route to start WhatsApp interaction when a user provides their phone number
 @whatsapp_bot_bp.route('/setup_whatsapp', methods=['POST'])
 def setup_whatsapp():
@@ -26,24 +32,23 @@ def setup_whatsapp():
         para_id = data.get('para_id')
         data_collection_id = data.get('data_collection_id')
 
+        # Validate inputs
         if not user_phone:
             logging.error("Phone number not provided")
             return jsonify({'status': 'error', 'message': 'Phone number is required'}), 400
         
-
-        user_phone1=f'+{user_phone}'
-
-        # Store the phone number in the session
-        user_sessions[user_phone1] = {
-            'phone_number': user_phone1,
+        # Store phone number in session with a proper format
+        user_phone_formatted = f'+{user_phone}'
+        user_sessions[user_phone_formatted] = {
+            'phone_number': user_phone_formatted,
             'status': 'waiting_for_join_code',
             'process_id': process_id,
             'para_id': para_id,
             'data_collection_id': data_collection_id
         }
-        print(user_sessions)
+
         # Set up WhatsApp service
-        response = setup_whatsapp_service(user_phone1, process_id, para_id, data_collection_id)
+        response = setup_whatsapp_service(user_phone_formatted, process_id, para_id, data_collection_id)
         return jsonify(response), 200
     except Exception as e:
         logging.error(f"Error in setup_whatsapp: {str(e)}")
@@ -55,24 +60,33 @@ def webhooks():
     try:
         incoming_msg = request.form.get('Body').strip().lower()
         from_number = request.form.get('From')
-
+        
         logging.info(f"Received message from {from_number}: {incoming_msg}")
 
-        # Extract phone number from 'whatsapp:' format (if present)
+        # Extract phone number from 'whatsapp:' format
         match = re.match(r"whatsapp:(\+?\d+)", from_number)
         if match:
-            from_number_cleaned = match.group(1)  # Extracted phone number without 'whatsapp:'
+            from_number_cleaned = match.group(1)
             logging.info(f"Cleaned phone number: {from_number_cleaned}")
         else:
             logging.error("Invalid phone number format")
             return jsonify({'status': 'error', 'message': 'Invalid phone number format'}), 400
-        # Check if the cleaned incoming phone number matches the stored phone number in user_sessions
+
+        # Check if the phone number is authorized
         if from_number_cleaned not in user_sessions or user_sessions[from_number_cleaned]['phone_number'] != from_number_cleaned:
             logging.info(f"Unauthorized message from {from_number_cleaned}. Ignoring.")
+            send_whatsapp_message(from_number_cleaned, "This number is unauthorized to interact with this bot.")
             return jsonify({'status': 'error', 'message': 'This number is not authorized to interact with the bot.'}), 400
 
-        # Pass the message and phone number to service for processing
+
+        
+        # Process the message
         response = process_whatsapp_message(from_number_cleaned, incoming_msg)
+        
+        # If data collection is complete, reset user session
+        if response.get('status') == 'complete':
+            reset_user_session(from_number_cleaned)
+
         return jsonify(response), 200
     except Exception as e:
         logging.error(f"Error in webhooks: {str(e)}")
