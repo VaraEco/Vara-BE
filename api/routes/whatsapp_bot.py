@@ -31,7 +31,9 @@ def setup_whatsapp():
         process_id = data.get('process_id')
         para_id = data.get('para_id')
         data_collection_id = data.get('data_collection_id')
-
+        print(process_id)
+        print(para_id)
+        print(data_collection_id)
         # Validate inputs
         if not user_phone:
             logging.error("Phone number not provided")
@@ -46,7 +48,7 @@ def setup_whatsapp():
             'para_id': para_id,
             'data_collection_id': data_collection_id
         }
-
+        print(user_sessions)
         # Set up WhatsApp service
         response = setup_whatsapp_service(user_phone_formatted, process_id, para_id, data_collection_id)
         return jsonify(response), 200

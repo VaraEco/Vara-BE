@@ -34,16 +34,18 @@ scheduler.start()
 def reset_user_session(phone_number):
     if phone_number not in user_sessions:
         user_sessions[phone_number] = {}
-        
+
     persistent_data = user_sessions[phone_number].get('persistent_data', {})
-    
+
     user_sessions[phone_number] = {
         'field_index': 0,
         'data': {},
         'status': 'waiting_for_join_code',
         'persistent_data': persistent_data  # Retain process_id, para_id, data_collection_id
     }
+
     logging.info(f"User session reset for {phone_number}. IDs retained: {bool(persistent_data)}")
+
 
 print(user_sessions)
 
@@ -60,9 +62,26 @@ def is_user_joined(phone_number):
     # This should be replaced with actual logic for checking user status
     return True  # Set to True if the user is joined, False otherwise
 
-# Setup WhatsApp service for a user
 def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
-    # Store user-specific data in the session
+    # Check if there's an existing user session with the same IDs
+    for phone_number, session in user_sessions.items():
+        persistent_data = session.get('persistent_data', {})
+        if (persistent_data.get('process_id') == process_id and
+            persistent_data.get('para_id') == para_id and
+            persistent_data.get('data_collection_id') == data_collection_id):
+            # If we find a matching session, send a message to the old user
+            # Notify old user that they are no longer able to submit data
+            client.messages.create(
+                body=f"Your session for process {process_id} has been taken over by a new user. You are no longer able to submit data.",
+                from_=TWILIO_WHATSAPP_NUM,
+                to=f"whatsapp:{phone_number}"
+            )
+            # Set the old user status to "inactive" before deleting the session
+            user_sessions[phone_number]['status'] = 'inactive'
+            logging.info(f"Old session marked as inactive for {phone_number} with process_id: {process_id}, para_id: {para_id}, data_collection_id: {data_collection_id}")
+            break  # Exit after deleting the first match
+
+    # Now, setup the new user session
     user_sessions[user_phone] = {
         'field_index': 0,
         'data': {},
@@ -90,18 +109,24 @@ def setup_whatsapp_service(user_phone, process_id, para_id, data_collection_id):
             )
             reset_user_session(user_phone)
             return {'status': 'success', 'message': f"Join code sent. Please follow the instructions to join WhatsApp bot and say Hello!"}
-        
+
     except Exception as e:
         logging.error(f"Error setting up WhatsApp service for {user_phone}: {e}")
         return {'status': 'error', 'message': 'Failed to send join instructions.'}
 
-# Process incoming WhatsApp messages
+
+
 def process_whatsapp_message(from_number, incoming_msg):
     try:
         if from_number not in user_sessions:
             reset_user_session(from_number)
 
         user_session = user_sessions[from_number]
+
+        # If user session is inactive, ignore their messages
+        if user_session['status'] == 'inactive':
+            logging.info(f"Ignoring message from inactive user {from_number}.")
+            return {'status': 'inactive', 'message': 'Your session is no longer active.'}
 
         if user_session['status'] == 'waiting_for_join_code':
             if is_user_joined(from_number):
@@ -125,6 +150,7 @@ def process_whatsapp_message(from_number, incoming_msg):
     except Exception as e:
         logging.error(f"Error processing message from {from_number}: {e}")
         return {'status': 'error'}
+
 
 # Handle the data collection process
 def handle_data_collection(from_number, incoming_msg):
