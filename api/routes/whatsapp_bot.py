@@ -39,6 +39,16 @@ def setup_whatsapp():
         
         # Store phone number in session with a proper format
         user_phone_formatted = f'+{user_phone}'
+
+         # **[START OF NEW LOGIC]** Check if the collection point (data_collection_id) is already associated with another number
+        for phone, session in user_sessions.items():
+            if session['data_collection_id'] == data_collection_id:
+                if session['phone_number'] != user_phone_formatted:
+                    logging.error(f"Data collection point {data_collection_id} is already associated with another number.")
+                    return jsonify({'status': 'error', 'message': f"Data collection point {data_collection_id} is already assigned to another phone number."}), 400
+        
+        # **[END OF NEW LOGIC]**
+        
         user_sessions[user_phone_formatted] = {
             'phone_number': user_phone_formatted,
             'status': 'waiting_for_join_code',
