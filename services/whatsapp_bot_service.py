@@ -217,7 +217,8 @@ def save_user_data_to_db(from_number, data, user_session):
             'evidence_name': data.get('evidence_name'),
             'process_id': process_id,
             'para_id': para_id,
-            'data_collection_id': data_collection_id
+            'data_collection_id': data_collection_id,
+            'Method': 'Whatsapp'
         }).execute()
 
         client.messages.create(
