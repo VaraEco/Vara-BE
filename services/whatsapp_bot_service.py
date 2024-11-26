@@ -136,7 +136,8 @@ def handle_data_collection(from_number, incoming_msg):
         # Process value
         if current_field == 'value':
             if not re.search(r'\d+', incoming_msg):
-                return request_field(from_number, 'Invalid value. Please provide a numeric value.', 'value')
+                return send_whatsapp_message(from_number, 'Invalid value. Please provide a numeric value.')
+                # return request_field(from_number, 'Invalid value. Please provide a numeric value.', 'value')
             user_session['data']['value'] = incoming_msg
         # Process log_unit
         elif current_field == 'log_unit':
@@ -145,7 +146,8 @@ def handle_data_collection(from_number, incoming_msg):
         elif current_field == 'log_date':
             log_date = validate_date(incoming_msg)
             if not log_date:
-                return request_field(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.', 'log_date')
+                return send_whatsapp_message(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.')
+                # return request_field(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.', 'log_date')
             user_session['data']['log_date'] = log_date
         # Process evidence_url
         elif current_field == 'evidence_url':
@@ -155,7 +157,8 @@ def handle_data_collection(from_number, incoming_msg):
             elif incoming_msg.startswith('http'):
                 user_session['data']['evidence_url'] = incoming_msg
             else:
-                return request_field(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence".', 'evidence_url')
+                return send_whatsapp_message(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence"')
+                # return request_field(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence".', 'evidence_url')
         # Process evidence_name only if there is an evidence URL
         elif current_field == 'evidence_name':
             user_session['data']['evidence_name'] = incoming_msg
