@@ -6,6 +6,7 @@ import logging
 import os
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -18,6 +19,9 @@ SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 join_code = os.getenv('WHATSAPP_JOIN_CODE')
 
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTHTOKEN')
+
 # Create Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -25,7 +29,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 user_sessions = {}
 
 # Schema for the fields we expect from users (order matters)
-schema_fields = ['value', 'log_unit', 'log_date', 'evidence_url', 'evidence_name']
+schema_fields = ['value', 'log_unit', 'log_date', 'evidence_file_url', 'evidence_name']
 
 # Initialize APScheduler
 scheduler = BackgroundScheduler()
@@ -126,6 +130,37 @@ def process_whatsapp_message(from_number, incoming_msg):
         logging.error(f"Error processing message from {from_number}: {e}")
         return {'status': 'error'}
 
+
+
+def download_file_from_twilio(media_url):
+    response = requests.get(media_url, auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), stream=True)
+    logging.info(f"media url is ------------------> {response}")
+    if response.status_code == 200:
+        logging.info(f"Downloaded content type: {response.headers.get('Content-Type')}")
+        return response.content
+    else:
+        raise Exception(f"Failed to download media from Twilio. Status code: {response.status_code}, URL: {media_url}")
+
+def upload_to_supabase(file_content, file_name, file_type):
+    # Replace 'Evidence' with your Supabase storage bucket name
+    logging.info(f"media file type is ===========> {file_type}")
+
+    response = supabase.storage.from_('Evidence').upload(f'test/{file_name}', file_content, {
+        "Content-Type": file_type,
+        "x-amz-acl": "public-read"
+    })
+    # if response.get('error'):
+    #     raise Exception(f"Error uploading file to Supabase: {response['error']}")
+
+    parsed_response = response.json()
+    file_path = parsed_response.get('Key')  # The 'Key' contains the file path
+    if not file_path:
+        raise Exception("File path not found in the response data.")
+    public_url = f"test/{file_name}"
+    logging.info(f"File uploaded successfully. Public URL: {public_url}")
+
+    return public_url
+
 # Handle the data collection process
 def handle_data_collection(from_number, incoming_msg):
     user_session = user_sessions[from_number]
@@ -150,18 +185,34 @@ def handle_data_collection(from_number, incoming_msg):
                 # return request_field(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.', 'log_date')
             user_session['data']['log_date'] = log_date
         # Process evidence_url
-        elif current_field == 'evidence_url':
-            if incoming_msg.lower() == 'no evidence':
-                user_session['data']['evidence_url'] = None
-                user_session['field_index'] += 2  # Skip evidence_name
-            elif incoming_msg.startswith('http'):
-                user_session['data']['evidence_url'] = incoming_msg
-            else:
-                return send_whatsapp_message(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence"')
-                # return request_field(from_number, 'Invalid URL. Please provide a valid URL or type "No evidence".', 'evidence_url')
-        # Process evidence_name only if there is an evidence URL
+        elif current_field == 'evidence_file_url':
+                if 'MediaUrl0' in incoming_msg:
+                    media_url = incoming_msg['MediaUrl0']
+                    
+                    file_content = download_file_from_twilio(media_url)
+
+                    file_type = incoming_msg.get('MediaContentType0', 'application/octet-stream')
+                    extension = file_type.split('/')[-1]  # Derive file extension from content type
+                    file_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_evidence_file.{extension}"
+            
+                    logging.info(f"Uploading file {file_name} of type {file_type}")
+
+                    evidence_url = upload_to_supabase(file_content, file_name, file_type)
+
+                    logging.info(f"the PUBLIC URL WILL BE===> {evidence_url}")
+
+                    user_session['data']['evidence_file_url'] = evidence_url
+                    user_session['data']['evidence_name'] = file_name
+                elif incoming_msg.lower() == 'no evidence':
+                    user_session['data']['evidence_file_url'] = None
+                    user_session['field_index'] += 2 
+                else:
+                    return send_whatsapp_message(from_number, "Please upload an evidence file or type 'No evidence'.")
+        
+        # Handle evidence_name
         elif current_field == 'evidence_name':
             user_session['data']['evidence_name'] = incoming_msg
+
 
         # Proceed to the next field
         user_session['field_index'] += 1
@@ -176,7 +227,7 @@ def handle_data_collection(from_number, incoming_msg):
     except Exception as e:
         logging.error(f"Error collecting data from {from_number}: {e}")
         client.messages.create(
-            body="An unexpected error occurred. Please try again later.",
+            body="An unexpected error occurred. Please try again later...",
             from_=TWILIO_WHATSAPP_NUM,
             to=f"whatsapp:{from_number}"
         )
@@ -211,18 +262,23 @@ def save_user_data_to_db(from_number, data, user_session):
             logging.error("Missing process_id, para_id, or data_collection_id for saving data.")
             return {'status': 'error', 'message': 'Missing required IDs for saving data.'}
 
+        logging.info(f"Inserting data into Supabase: {data}")
+
         # Insert data into Supabase
-        supabase.table('parameter_log').insert({
+        response = supabase.table('parameter_log').insert({
             'log_date': data['log_date'],
             'value': data['value'],
             'log_unit': data['log_unit'],
-            'evidence_url': data.get('evidence_url'),
+            'evidence_url': data.get('evidence_file_url'),
             'evidence_name': data.get('evidence_name'),
             'process_id': process_id,
             'para_id': para_id,
             'data_collection_id': data_collection_id,
             'Method': 'Whatsapp'
         }).execute()
+
+        logging.info(f"Supabase response: {response}")
+
 
         client.messages.create(
             body="Data saved successfully! We'll ask for new data in 24 hours.",

@@ -91,7 +91,22 @@ def webhooks():
 
         
         # Process the message
-        response = process_whatsapp_message(from_number_cleaned, incoming_msg)
+        if incoming_msg:
+            response = process_whatsapp_message(from_number_cleaned, incoming_msg)
+            
+                # Process media messages
+        elif 'NumMedia' in request.form and int(request.form['NumMedia']) > 0:
+            # Get media URL
+           media_details = {
+             'NumMedia': request.form.get('NumMedia'),
+              'MediaUrl0': request.form.get('MediaUrl0'),
+              'MediaContentType0': request.form.get('MediaContentType0')
+           }
+
+            # Process media (you can store media URL in the database or send it to user)
+        logging.info(f"Received media: {media_details}")
+        response = process_whatsapp_message(from_number_cleaned, media_details)
+
         
         # If data collection is complete, reset user session
         if response.get('status') == 'complete':
