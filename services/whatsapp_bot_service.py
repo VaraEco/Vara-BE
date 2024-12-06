@@ -152,7 +152,7 @@ def upload_to_supabase(file_content, file_name, file_type):
     # if response.get('error'):
     #     raise Exception(f"Error uploading file to Supabase: {response['error']}")
 
-     if not response.get('data'):
+    if not response.get('data'):
         raise Exception(f"Error uploading file to Supabase: {response.get('error')}")
 
     # Construct the public URL
