@@ -152,13 +152,11 @@ def upload_to_supabase(file_content, file_name, file_type):
     # if response.get('error'):
     #     raise Exception(f"Error uploading file to Supabase: {response['error']}")
 
-    logging.info(f"here is the response after deployment===> {response}")
-
-    if response.error:
-        raise Exception(f"Error uploading file to Supabase: {response.error.message}")
-
-    # Construct the public URL
-    public_url = supabase.storage.from_('Evidence').get_public_url(f'test/{file_name}')
+    parsed_response = response.json()
+    file_path = parsed_response.get('Key')  # The 'Key' contains the file path
+    if not file_path:
+        raise Exception("File path not found in the response data.")
+    public_url = f"test/{file_name}"
     logging.info(f"File uploaded successfully. Public URL: {public_url}")
 
     return public_url
