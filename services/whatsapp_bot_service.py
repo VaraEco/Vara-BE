@@ -153,13 +153,16 @@ def upload_to_supabase(file_content, file_name, file_type):
     #     raise Exception(f"Error uploading file to Supabase: {response['error']}")
     logging.info(f"response obj is: {response}")
 
-    logging.info(f"response path is: {response.path}")
+    # logging.info(f"response path is: {response.path}")
     
-    logging.info(f"response full_path is: {response.full_path}")
+    # logging.info(f"response full_path is: {response.full_path}")
 
-    parsed_response = response.json()
+    # parsed_response = response.json()
 
-    file_path = parsed_response.get('Key')  # The 'Key' contains the file path
+    # logging.info(f"parsed_response obj is: {parsed_response}")
+
+    file_path = response.full_path 
+
     if not file_path:
         raise Exception("File path not found in the response data.")
     public_url = f"test/{file_name}"
