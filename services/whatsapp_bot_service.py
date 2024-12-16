@@ -159,6 +159,7 @@ def upload_to_supabase(file_content, file_name, file_type):
 
     # parsed_response = response.json()
 
+
     # logging.info(f"parsed_response obj is: {parsed_response}")
 
     file_path = response.full_path 
@@ -177,51 +178,61 @@ def handle_data_collection(from_number, incoming_msg):
     current_field = schema_fields[field_index]
 
     try:
-        # Process value
+        # Step 1: Process details (value, unit, and date from incoming message)
         if current_field == 'value':
-            if not re.search(r'\d+', incoming_msg):
+            # Split incoming message into lines
+            lines = incoming_msg.strip().split('\n')
+            
+            if len(lines) != 3:
+                return send_whatsapp_message(from_number, 'Please provide all three details: value, unit, and date in the following format:\n\nvalue\nunit\ndate (YYYY-MM-DD).')
+
+            value, unit, log_date = lines
+            
+            # Validate value (numeric)
+            if not re.search(r'\d+', value):
                 return send_whatsapp_message(from_number, 'Invalid value. Please provide a numeric value.')
-                # return request_field(from_number, 'Invalid value. Please provide a numeric value.', 'value')
-            user_session['data']['value'] = incoming_msg
-        # Process log_unit
-        elif current_field == 'log_unit':
-            user_session['data']['log_unit'] = incoming_msg
-        # Process log_date
-        elif current_field == 'log_date':
-            log_date = validate_date(incoming_msg)
+
+            # Validate date
+            log_date = validate_date(log_date)
             if not log_date:
                 return send_whatsapp_message(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.')
-                # return request_field(from_number, 'Invalid date format. Please provide the log date in YYYY-MM-DD format.', 'log_date')
+
+            # Store the data
+            user_session['data']['value'] = value
+            user_session['data']['log_unit'] = unit
             user_session['data']['log_date'] = log_date
-        # Process evidence_url
-        elif current_field == 'evidence_file_url':
-                if 'MediaUrl0' in incoming_msg:
-                    media_url = incoming_msg['MediaUrl0']
-                    
-                    file_content = download_file_from_twilio(media_url)
 
-                    file_type = incoming_msg.get('MediaContentType0', 'application/octet-stream')
-                    extension = file_type.split('/')[-1]  # Derive file extension from content type
-                    file_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_evidence_file.{extension}"
-            
-                    logging.info(f"Uploading file {file_name} of type {file_type}")
+            # Move to the next field (i.e., evidence collection)
+            user_session['field_index'] += 3
+            return send_whatsapp_message(from_number, "Now, please upload any evidence (file) or type 'No evidence'.")
 
-                    evidence_url = upload_to_supabase(file_content, file_name, file_type)
+        # Step 2: Process evidence (existing flow)
+        if current_field == 'evidence_file_url':
+            if 'MediaUrl0' in incoming_msg:
+                media_url = incoming_msg['MediaUrl0']
+                file_content = download_file_from_twilio(media_url)
 
-                    logging.info(f"the PUBLIC URL WILL BE===> {evidence_url}")
+                file_type = incoming_msg.get('MediaContentType0', 'application/octet-stream')
+                extension = file_type.split('/')[-1]  # Derive file extension from content type
+                file_name = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_evidence_file.{extension}"
 
-                    user_session['data']['evidence_file_url'] = evidence_url
-                    user_session['data']['evidence_name'] = file_name
-                elif incoming_msg.lower() == 'no evidence':
-                    user_session['data']['evidence_file_url'] = None
-                    user_session['field_index'] += 2 
-                else:
-                    return send_whatsapp_message(from_number, "Please upload an evidence file or type 'No evidence'.")
+                logging.info(f"Uploading file {file_name} of type {file_type}")
+
+                evidence_url = upload_to_supabase(file_content, file_name, file_type)
+
+                logging.info(f"the PUBLIC URL WILL BE===> {evidence_url}")
+
+                user_session['data']['evidence_file_url'] = evidence_url
+                user_session['data']['evidence_name'] = file_name
+            elif incoming_msg.lower() == 'no evidence':
+                user_session['data']['evidence_file_url'] = None
+                user_session['field_index'] += 2
+            else:
+                return send_whatsapp_message(from_number, "Please upload an evidence file or type 'No evidence'.")
         
-        # Handle evidence_name
+        # Handle evidence_name (if needed)
         elif current_field == 'evidence_name':
             user_session['data']['evidence_name'] = incoming_msg
-
 
         # Proceed to the next field
         user_session['field_index'] += 1
