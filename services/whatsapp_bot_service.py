@@ -111,7 +111,7 @@ def process_whatsapp_message(from_number, incoming_msg):
             if is_user_joined(from_number):
                 user_session['status'] = 'collecting_data'
                 client.messages.create(
-                    body="Welcome! Let's start by collecting some information. Please provide the value.",
+                    body="Welcome! Let's start by collecting some information. Please provide all the details in each line",
                     from_=TWILIO_WHATSAPP_NUM,
                     to=f"whatsapp:{from_number}"
                 )
